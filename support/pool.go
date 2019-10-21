@@ -67,6 +67,7 @@ func (p *Pool) SendMessage(method string, params map[string]string) error {
 	if err != nil {
 		return err
 	}
+	return nil
 }
 
 func (p *Pool) Login() {
