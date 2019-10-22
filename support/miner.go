@@ -110,6 +110,10 @@ func (m *Miner) HandleMessage(msg []byte) {
 
 	m.LastContact = time.Now()
 
+	if r.ID > 0 {
+		m.RPCID = r.ID
+	}
+
 	switch r.Method {
 	case "login":
 		// Handle the login case
