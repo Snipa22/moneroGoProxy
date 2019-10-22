@@ -17,16 +17,20 @@ import (
 var MinDiff uint32 = 1000
 var MaxDiff uint32 = 100000
 
+var (
+	ErrorNotAuthenticated = errors.New("not authenticated")
+)
+
 type MinerRPCError struct {
 	Code    int8   `json:"code"`    // Error code number, usually -1
 	Message string `json:"message"` // Error message to send the miner
 }
 
 type MinerRPCResponse struct {
-	ID      uint32             `json:"id"`                 // ID for the message
-	JsonRPC string             `json:"jsonrpc"`            // The RPC version in use
-	Error   *MinerRPCError     `json:"error,omitifempty"`  // Send error if we've got it.
-	Result  *map[string]string `json:"result,omitifempty"` // String of the response to send as the body, usually a json object of some sort
+	ID      uint32                  `json:"id"`                 // ID for the message
+	JsonRPC string                  `json:"jsonrpc"`            // The RPC version in use
+	Error   *MinerRPCError          `json:"error,omitifempty"`  // Send error if we've got it.
+	Result  *map[string]interface{} `json:"result,omitifempty"` // String of the response to send as the body, usually a json object of some sort
 }
 
 type MinerRPCReceive struct {
@@ -120,10 +124,10 @@ func (m *Miner) HandleMessage(msg []byte) {
 			fixedDiff, _ := strconv.Atoi(pt[1])
 			m.Difficulty = uint32(fixedDiff)
 		} else if len(pt) > 2 {
-			m.SendMessage(errors.New("too many options in the login field"), map[string]string{})
+			m.SendMessage(errors.New("too many options in the login field"), map[string]interface{}{})
 			return
 		}
-		m.SendMessage(nil, map[string]string{
+		m.SendMessage(nil, map[string]interface{}{
 			"id":     m.ID,
 			"status": "OK",
 			"job":    m.Pool.CurrentBlockTemplate.GetJob(m, true).GetMinerSend(*m),
@@ -131,7 +135,12 @@ func (m *Miner) HandleMessage(msg []byte) {
 		m.Alive = true
 		break
 	case "getjob":
+		if !m.Alive {
+			m.SendMessage(ErrorNotAuthenticated, map[string]interface{}{})
+			return
+		}
 		// Hand them a new job damnit!
+		m.SendMessage(nil, m.Pool.CurrentBlockTemplate.GetJob(m, true).GetMinerSend(*m))
 		break
 	case "submit":
 		// Hash, hash, hash
@@ -162,7 +171,7 @@ func (m *Miner) SetNewDiff(d uint32) {
 }
 
 // Take Error, Miner Respone ID
-func (m *Miner) SendMessage(e error, r map[string]string) {
+func (m *Miner) SendMessage(e error, r map[string]interface{}) {
 	mr := MinerRPCResponse{
 		ID:      m.RPCID,
 		JsonRPC: "",
@@ -206,13 +215,12 @@ type MinerJob struct {
 	Submissions   []string      // List of all nonces submitted
 }
 
-func (mj MinerJob) GetMinerSend(m Miner) string {
-	res, _ := json.Marshal(map[string]interface{}{
+func (mj MinerJob) GetMinerSend(m Miner) map[string]interface{} {
+	return map[string]interface{}{
 		"blob":   mj.HashBlob,
 		"job_id": mj.ID,
 		"target": mj.Target,
 		"id":     m.ID,
 		"height": mj.BlockTemplate.Height,
-	})
-	return string(res)
+	}
 }
