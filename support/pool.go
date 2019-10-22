@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/snipa22/monerocnutils/serialization"
 	"net"
 )
 
@@ -20,7 +19,7 @@ type Pool struct {
 	Primary              bool                // Is this the primary pool?
 	Dev                  bool                // Is the the developer pool?
 	PastBlockTemplates   []BlockTemplate     // Previous block templates
-	CurrentBlockTemplate serialization.Block // Current block template
+	CurrentBlockTemplate BlockTemplate       // Current block template
 	Active               bool                // Is this pool active?
 	SendId               uint64              // Number of messages sent by the pool
 	SendLog              map[uint64]string   // Logs of all sent messages to this pool instance

@@ -1,10 +1,16 @@
 package support
 
 import (
+	"bufio"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
+	"math/rand"
 	"net"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -21,6 +27,12 @@ type MinerRPCResponse struct {
 	JsonRPC string             `json:"jsonrpc"`            // The RPC version in use
 	Error   *MinerRPCError     `json:"error,omitifempty"`  // Send error if we've got it.
 	Result  *map[string]string `json:"result,omitifempty"` // String of the response to send as the body, usually a json object of some sort
+}
+
+type MinerRPCReceive struct {
+	ID     uint32            `json:"id"`
+	Method string            `json:"method"`
+	Params map[string]string `json:"params"`
 }
 
 type Miner struct {
@@ -43,6 +55,91 @@ type Miner struct {
 	CachedJob     MinerJob  // Current cached job
 	RPCID         uint32    // Last known RPC ID from the miner
 	Alive         bool      // Is the miner alive?
+	ID            string    // Miner Identifier
+}
+
+func MinerEntry(c net.Conn, p Pool) {
+	token := make([]byte, 21)
+	rand.Read(token)
+
+	m := Miner{
+		Login:         "",
+		Password:      "",
+		Agent:         "",
+		IP:            "",
+		Socket:        c,
+		Pool:          p,
+		ConnectTime:   time.Time{},
+		Difficulty:    0,
+		FixedDiff:     false,
+		Incremented:   false,
+		Shares:        0,
+		Blocks:        0,
+		Hashes:        0,
+		LastContact:   time.Time{},
+		LastShareTime: time.Time{},
+		NewDiff:       0,
+		CachedJob:     MinerJob{},
+		RPCID:         0,
+		Alive:         false,
+		ID:            hex.EncodeToString(token),
+	}
+
+	buf := bufio.NewReader(m.Socket)
+
+	for {
+		data, _, err := buf.ReadLine()
+		if err != nil {
+			return
+		}
+		m.HandleMessage(data)
+	}
+}
+
+func (m *Miner) HandleMessage(msg []byte) {
+	r := MinerRPCReceive{}
+	err := json.Unmarshal(msg, r)
+	if err != nil {
+		fmt.Printf("Error in decoding message: %v from miner at %v (%v/%v)", msg, m.IP, m.Login, m.Password)
+		return
+	}
+
+	m.LastContact = time.Now()
+
+	switch r.Method {
+	case "login":
+		// Handle the login case
+		// The data files should be login, pass, agent
+		m.Agent = r.Params["agent"]
+		m.Login = r.Params["login"]
+		m.Password = r.Params["pass"]
+
+		pt := strings.Split(m.Login, "+")
+		if len(pt) == 2 {
+			m.FixedDiff = true
+			fixedDiff, _ := strconv.Atoi(pt[1])
+			m.Difficulty = uint32(fixedDiff)
+		} else if len(pt) > 2 {
+			m.SendMessage(errors.New("too many options in the login field"), map[string]string{})
+			return
+		}
+		m.SendMessage(nil, map[string]string{
+			"id":     m.ID,
+			"status": "OK",
+			"job":    m.Pool.CurrentBlockTemplate.GetJob(m, true).GetMinerSend(*m),
+		})
+		m.Alive = true
+		break
+	case "getjob":
+		// Hand them a new job damnit!
+		break
+	case "submit":
+		// Hash, hash, hash
+		break
+	case "keepalived":
+		// More keepalive.  Sigh
+		break
+	}
 }
 
 func (m *Miner) UpdateDifficulty(t uint64) {
@@ -107,4 +204,15 @@ type MinerJob struct {
 	JobNonce      uint32        // Nonce for the job
 	Difficulty    uint32        // Miner Difficulty
 	Submissions   []string      // List of all nonces submitted
+}
+
+func (mj MinerJob) GetMinerSend(m Miner) string {
+	res, _ := json.Marshal(map[string]interface{}{
+		"blob":   mj.HashBlob,
+		"job_id": mj.ID,
+		"target": mj.Target,
+		"id":     m.ID,
+		"height": mj.BlockTemplate.Height,
+	})
+	return string(res)
 }
