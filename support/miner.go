@@ -97,6 +97,9 @@ func MinerEntry(c net.Conn, p Pool) {
 			return
 		}
 		m.HandleMessage(data)
+		if !m.Alive {
+			break
+		}
 	}
 }
 
@@ -105,6 +108,9 @@ func (m *Miner) HandleMessage(msg []byte) {
 	err := json.Unmarshal(msg, r)
 	if err != nil {
 		fmt.Printf("Error in decoding message: %v from miner at %v (%v/%v)", msg, m.IP, m.Login, m.Password)
+		if !m.Alive {
+			_ = m.Socket.Close()
+		}
 		return
 	}
 
