@@ -146,7 +146,14 @@ func (m *Miner) HandleMessage(msg []byte) {
 		// Hash, hash, hash
 		break
 	case "keepalived":
+		if !m.Alive {
+			m.SendMessage(ErrorNotAuthenticated, map[string]interface{}{})
+			return
+		}
 		// More keepalive.  Sigh
+		m.SendMessage(nil, map[string]interface{}{
+			"status": "KEEPALIVED",
+		})
 		break
 	}
 }
