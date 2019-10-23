@@ -40,16 +40,16 @@ type BlockTemplate struct {
 
 func (b *BlockTemplate) GetWorkerBlob() string {
 	b.PoolNonce += 1
-	binary.LittleEndian.PutUint32(b.Block.MinerTxn.Extra[8:12], b.PoolNonce)
+	binary.BigEndian.PutUint32(b.Block.MinerTxn.Extra[8:12], b.PoolNonce)
 	return hex.EncodeToString(b.Serialize())
 }
 
 func (b *BlockTemplate) NextBlob() string {
 	b.WorkerNonce += 1
 	if b.Solo {
-		binary.LittleEndian.PutUint32(b.Block.MinerTxn.Extra[0:4], b.WorkerNonce)
+		binary.BigEndian.PutUint32(b.Block.MinerTxn.Extra[0:4], b.WorkerNonce)
 	} else {
-		binary.LittleEndian.PutUint32(b.Block.MinerTxn.Extra[12:16], b.WorkerNonce)
+		binary.BigEndian.PutUint32(b.Block.MinerTxn.Extra[12:16], b.WorkerNonce)
 	}
 	return hex.EncodeToString(b.Serialize())
 }
@@ -66,14 +66,13 @@ func (b *BlockTemplate) GetJob(m *Miner, bc bool) MinerJob {
 		m.NewDiff = 0
 	}
 
-	target := make([]byte, 4)
-	binary.LittleEndian.PutUint32(target, m.Difficulty)
+	_, st := getTarget(m.Difficulty)
 
 	var j MinerJob = MinerJob{
 		ID:            hex.EncodeToString(token),
 		BlockTemplate: *b,
 		HashBlob:      b.GetWorkerBlob(),
-		Target:        hex.EncodeToString(target),
+		Target:        st,
 		JobNonce:      b.WorkerNonce,
 		Difficulty:    m.Difficulty,
 		Submissions:   []string{},

@@ -2,10 +2,13 @@ package support
 
 import (
 	"bufio"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bitherhq/go-bither/common"
+	"github.com/bitherhq/go-bither/common/number"
 	"math"
 	"math/rand"
 	"net"
@@ -172,6 +175,20 @@ func (m *Miner) UpdateDifficulty(t uint64) {
 	if m.Hashes > 0 && !m.FixedDiff {
 		m.SetNewDiff(uint32(m.Hashes / uint64(math.Floor(time.Now().Sub(m.ConnectTime).Seconds())) * t))
 	}
+}
+
+func getTarget(d uint32) (uint32, string) {
+	baseDiff := number.Uint256(0).SetBytes(common.Hex2Bytes("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"))
+	baseDiff = baseDiff.Div(baseDiff, number.Uint256(int64(d)))
+	a := make([]byte, 32)
+	copy(a[32-len(baseDiff.Bytes()):], baseDiff.Bytes())
+	b := a[0:4]
+	for i := len(b)/2 - 1; i >= 0; i-- {
+		opp := len(b) - 1 - i
+		b[i], b[opp] = b[opp], b[i]
+	}
+
+	return binary.BigEndian.Uint32(b), hex.EncodeToString(b)
 }
 
 func (m *Miner) SetNewDiff(d uint32) {
