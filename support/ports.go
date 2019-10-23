@@ -9,7 +9,7 @@ import (
 	"os"
 )
 
-type Ports struct {
+type Port struct {
 	Port         uint32 // What port number
 	SSL          bool   // Does the port use SSL?
 	FixedDiff    bool   // Is the port fixed diff
@@ -17,7 +17,7 @@ type Ports struct {
 	MaxDiff      uint32 // If the port is fixed diff, this doesn't matter.
 }
 
-func (p *Ports) Listen(c chan<- net.Conn) {
+func (p *Port) Listen(c chan<- net.Conn) {
 	var l net.Listener
 	var err error
 	if !p.SSL {

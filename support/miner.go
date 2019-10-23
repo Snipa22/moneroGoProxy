@@ -10,7 +10,6 @@ import (
 	"github.com/bitherhq/go-bither/common"
 	"github.com/bitherhq/go-bither/common/number"
 	"math"
-	"math/rand"
 	"net"
 	"strconv"
 	"strings"
@@ -63,34 +62,10 @@ type Miner struct {
 	RPCID         uint32    // Last known RPC ID from the miner
 	Alive         bool      // Is the miner alive?
 	ID            string    // Miner Identifier
+	Port          Port      // Port configuration
 }
 
-func MinerEntry(c net.Conn, p Pool) {
-	token := make([]byte, 21)
-	rand.Read(token)
-
-	m := Miner{
-		Login:         "",
-		Password:      "",
-		Agent:         "",
-		IP:            "",
-		Socket:        c,
-		Pool:          p,
-		ConnectTime:   time.Time{},
-		Difficulty:    0,
-		FixedDiff:     false,
-		Incremented:   false,
-		Shares:        0,
-		Blocks:        0,
-		Hashes:        0,
-		LastContact:   time.Time{},
-		LastShareTime: time.Time{},
-		NewDiff:       0,
-		CachedJob:     MinerJob{},
-		RPCID:         0,
-		Alive:         false,
-		ID:            hex.EncodeToString(token),
-	}
+func (m *Miner) MinerEntry(c <-chan string) {
 
 	buf := bufio.NewReader(m.Socket)
 
