@@ -33,7 +33,7 @@ func main() {
 		case c := <-l:
 			// Setup new miner.
 			var p support.Port
-			for p, _ = range ports {
+			for _, p = range ports {
 				if p.Port == uint32(c.LocalAddr().(*net.TCPAddr).Port) {
 					break
 				}
